@@ -1,72 +1,23 @@
-#include <Arduino.h>
+// LAB4 ECE372
+// NICK ROMAN, AIDAN DEOGRACIAS, NOAH MONROE, ANDREW GHARTEY
+// COMPLETED 4/6/26
+// Description: This file implements the initialization of an external
+// switch.
+//----------------------------------------------------------------------//
+
 #include "switch.h"
+#include <avr/io.h>
+/*
+ * Initializes pull-up resistor on PD0 and sets it into input mode
+ */
 
-const int buttonPin = 2;
-
-volatile bool buttonInterruptFlag = false;
-
-enum BreathState {
-  WAIT_FOR_CALIBRATION,
-  CALIBRATING,
-  WAIT_FOR_BREATH,
-  READING_BREATH
-};
-
-BreathState breathState = WAIT_FOR_CALIBRATION;
-
-unsigned long switchTime = 0;
-const unsigned long debounceDelay = 25;
-
-ISR(INT0_vect) {
-  buttonInterruptFlag = true;
-}
-
-void initSwitch() {
-  pinMode(buttonPin, INPUT_PULLUP);
-
-  // INT0 is digital pin 2 on Arduino Mega
-  EICRA |= (1 << ISC01);   // falling edge
-  EICRA &= ~(1 << ISC00);
-
-  EIMSK |= (1 << INT0);    // enable INT0
-}
-
-bool buttonPressed() {
-  if (buttonInterruptFlag) {
-    buttonInterruptFlag = false;
-
-    if (millis() - switchTime >= debounceDelay) {
-      switchTime = millis();
-      return true;
-    }
-  }
-
-  return false;
-}
-
-void updateBreathState() {
-  if (buttonPressed()) {
-    switch (breathState) {
-
-      case WAIT_FOR_CALIBRATION:
-        breathState = CALIBRATING;
-        break;
-
-      case CALIBRATING:
-        breathState = WAIT_FOR_BREATH;
-        break;
-
-      case WAIT_FOR_BREATH:
-        breathState = READING_BREATH;
-        break;
-
-      case READING_BREATH:
-        breathState = WAIT_FOR_CALIBRATION;
-        break;
-    }
-  }
-}
-
-BreathState getBreathState() {
-  return breathState;
+void initSwitchPD0(){
+    //initialize as input using and with a 0
+    DDRD &= ~(1<<PD0);
+    //initialize the pullup resistor
+    PORTD |= (1 << PD0);
+    //initialize/enable external interrupts for PD0 (INT0)
+    EICRA &= ~(1 << ISC01);
+    EICRA |= (1 << ISC00);
+    EIMSK |= (1<<INT0);
 }
