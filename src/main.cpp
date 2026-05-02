@@ -3,6 +3,8 @@
 #include <avr/interrupt.h>
 
 
+initRTC();
+sei();
 
 
 void main() {
