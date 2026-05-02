@@ -4,6 +4,7 @@
 
 initLCD()
 initSwitchPD0();
+initADC();
 initRTC();
 init7Seg();
 sei();
