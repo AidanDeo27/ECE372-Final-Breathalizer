@@ -1,167 +1,161 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
-
-// main.cpp
-// MQ3 Breathalyzer Prototype
-// Arduino Mega 2560
-
 #include <Arduino.h>
+
 #include "switch.h"
 #include "rtc.h"
 #include "pwm.h"
 #include "lcd.h"
+#include "adc.h"
+#include "sevensegment.h"
+#include "timer.h"
 
-// MQ3 sensor pin
-const int mq3Pin = A0;
+// ─── Constants ───────────────────────────────────────────────────────────────
+const int     MQ3_PIN          = A0;
+const uint8_t REQUIRED_BLOW_S  = 8;
+const int    MQ3_THRESHOLD    = 100;  // Adjust this threshold based on testing
 
-// Timing values
-const unsigned long calibrationTime = 10000; // 10 seconds
-const unsigned long breathTime = 5000;       // 5 seconds
-const unsigned long resultTime = 5000;       // 5 seconds
-
-// Breathalyzer states
+// ─── State Machine ───────────────────────────────────────────────────────────
 enum BreathState {
-  WAIT_FOR_CALIBRATION,
-  CALIBRATING,
-  WAIT_FOR_BREATH,
-  READING_BREATH,
-  DISPLAY_RESULT
+    WAIT_FOR_CALIBRATION,
+    CALIBRATING,
+    WAIT_FOR_BREATH,
+    READING_BREATH,
+    DISPLAY_RESULT,
 };
 
 BreathState breathState = WAIT_FOR_CALIBRATION;
 
-unsigned long stateStartTime = 0;
-
-int mq3Value = 0;
+// ─── Globals ─────────────────────────────────────────────────────────────────
+int mq3Value     = 0;
 int peakMQ3Value = 0;
 
-void changeState(BreathState newState) {
-  breathState = newState;
-  stateStartTime = millis();
-}
+// ─── Main ────────────────────────────────────────────────────────────────────
+int main() {
+    // Initializations
+    Serial.begin(9600);
+    initSwitchPD0();
+    initRTC();
+    initPWM();
+    initLCD();
+    initADC();
+    init7Seg();
+    timer1_init();
+    sei();
 
+    turnBuzzerOff();
+    clearLCD();
+    printLCD("Press button");
+    setLCDCursor(0, 1);
+    printLCD("to calibrate");
 
-//FLOW FOR PROJECT
-/*WAIT_FOR_CALIBRATION
-press button
-CALIBRATING for 10 sec
-WAIT_FOR_BREATH
-press button
-READING_BREATH for 5 sec
-DISPLAY_RESULT for 5 sec
-back to start
-  */
-void setup() {
-  Serial.begin(9600);
+    Serial.println("MQ3 Breathalyzer Ready");
 
-  initSwitchPD0();
-  initRTC();
-  initPWM();
-  initLCD();
-  initADC()
-  init7Seg();
-  sei();
-  
-  turnBuzzerOff();
+    // Main loop
+    while (1) {
+        switch (breathState) {
 
-  clearLCD();
-  printLCD("Press button");
-  setLCDCursor(0, 1);
-  printLCD("to calibrate");
+            case WAIT_FOR_CALIBRATION:
+                turnBuzzerOff();
 
-  Serial.println("MQ3 Breathalyzer Ready");
-}
+                if (buttonPressed()) {
+                    peakMQ3Value = 0;
+                    clearLCD();
+                    printLCD("Calibrating...");
+                    Serial.println("Calibration started");
+                    timer1_start();
+                    breathState = CALIBRATING;
+                }
+                break;
 
-void loop() {
-  switch (breathState) {
+            case CALIBRATING:
+                beepLow();
+                display7Seg(REQUIRED_BLOW_S - seconds_blown);
 
-    case WAIT_FOR_CALIBRATION:
-      turnBuzzerOff();
+                if (seconds_blown >= 10) {   // 10 second calibration
+                    timer1_stop();
+                    timer1_reset();
+                    turnBuzzerOff();
+                    clearLCD();
+                    printLCD("Ready");
+                    setLCDCursor(0, 1);
+                    printLCD("Press to blow");
+                    Serial.println("Calibration complete");
+                    breathState = WAIT_FOR_BREATH;
+                }
+                break;
 
-      if (buttonPressed()) {
-        peakMQ3Value = 0;
+            case WAIT_FOR_BREATH:
+                turnBuzzerOff();
 
-        clearLCD();
-        printLCD("Calibrating...");
-        Serial.println("Calibration started");
+                if (buttonPressed()) {
+                    peakMQ3Value = 0;
+                    clearLCD();
+                    printLCD("Blow now!");
+                    Serial.println("Breath reading started");
+                    printTime();
+                    timer1_start();
+                    breathState = READING_BREATH;
+                }
+                break;
 
-        changeState(CALIBRATING);
-      }
-      break;
+            case READING_BREATH:
+                beepHigh();
+                display7Seg(REQUIRED_BLOW_S - seconds_blown);  // countdown
 
-    case CALIBRATING:
-      beepLow();
+                mq3Value = analogRead(MQ3_PIN);
+                if (mq3Value > peakMQ3Value) {
+                    peakMQ3Value = mq3Value;
+                }
 
-      if (millis() - stateStartTime >= calibrationTime) {
-        turnBuzzerOff();
+                Serial.print("MQ3 Reading: ");
+                Serial.println(mq3Value);
+                printMQ3TimeStamp(mq3Value);
 
-        clearLCD();
-        printLCD("Ready");
-        setLCDCursor(0, 1);
-        printLCD("Press to blow");
+                //FINISH , CHCECK DISCORD FOR PROBLEM EXPLAINED, maybe do this if with an & condition to check for the sensor state. 
+                if (seconds_blown < REQUIRED_BLOW_S && mq3Value < MQ3_THRESHOLD){ 
+                  timer1_stop();
+                  timer1_reset();
+                  turnBuzzerOff();//seconds blown is less than required and the user stop blowing.
+                  display7Seg(0);  // show 0 if they haven't blown long enough
+                  clearLCD();
+                  printLCD("Invalid blow");
+                  setLCDCursor(0, 1);
+                  printLCD("Please Retry");
+                  peakMQ3Value = 0;
+                  breathState = WAIT_FOR_BREATH; //goes back to waiting for breath, they can try again if they didn't blow long enough or if they stopped blowing before the required time.
+                  break;
+                }
 
-        Serial.println("Calibration complete");
+                if (seconds_blown >= REQUIRED_BLOW_S) {
+                    timer1_stop();
+                    timer1_reset();
+                    turnBuzzerOff();
+                    clearLCD();
+                    printLCD("Peak MQ3:");
+                    setLCDCursor(0, 1);
+                    printLCDNumber(peakMQ3Value);
+                    Serial.print("Final Peak MQ3 Value: ");
+                    Serial.println(peakMQ3Value);
+                    breathState = DISPLAY_RESULT;
+                }
+                break;
 
-        changeState(WAIT_FOR_BREATH);
-      }
-      break;
+            case DISPLAY_RESULT:
+                turnBuzzerOff();
 
-    case WAIT_FOR_BREATH:
-      turnBuzzerOff();
+                if (seconds_blown >= 5) {    // show result for 5 seconds
+                    timer1_stop();
+                    timer1_reset();
+                    clearLCD();
+                    printLCD("Press button");
+                    setLCDCursor(0, 1);
+                    printLCD("to calibrate");
+                    breathState = WAIT_FOR_CALIBRATION;
+                }
+                break;
+        }
+    }
 
-      if (buttonPressed()) {
-        peakMQ3Value = 0;
-
-        clearLCD();
-        printLCD("Blow now!");
-
-        Serial.println("Breath reading started");
-        printTime();
-
-        changeState(READING_BREATH);
-      }
-      break;
-
-    case READING_BREATH:
-      beepHigh();
-
-      mq3Value = analogRead(mq3Pin);
-
-      if (mq3Value > peakMQ3Value) {
-        peakMQ3Value = mq3Value;
-      }
-
-      Serial.print("MQ3 Reading: ");
-      Serial.println(mq3Value);
-
-      printMQ3TimeStamp(mq3Value);
-
-      if (millis() - stateStartTime >= breathTime) {
-        turnBuzzerOff();
-
-        clearLCD();
-        printLCD("Peak MQ3:");
-        setLCDCursor(0, 1);
-        printLCDNumber(peakMQ3Value);
-
-        Serial.print("Final Peak MQ3 Value: ");
-        Serial.println(peakMQ3Value);
-
-        changeState(DISPLAY_RESULT);
-      }
-      break;
-
-    case DISPLAY_RESULT:
-      turnBuzzerOff();
-
-      if (millis() - stateStartTime >= resultTime) {
-        clearLCD();
-        printLCD("Press button");
-        setLCDCursor(0, 1);
-        printLCD("to calibrate");
-
-        changeState(WAIT_FOR_CALIBRATION);
-      }
-      break;
-  }
+    return 0;
 }
