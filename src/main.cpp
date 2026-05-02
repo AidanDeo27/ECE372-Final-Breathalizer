@@ -5,7 +5,9 @@
 initLCD()
 initSwitchPD0();
 initRTC();
+init7Seg();
 sei();
+
 
 
 void main() {
