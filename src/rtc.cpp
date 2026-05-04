@@ -3,115 +3,71 @@
 #include <RTClib.h>
 #include "rtc.h"
 
-RTC_DS3231 rtc;
+// Use DS1307 for your module
+RTC_DS1307 rtc;
 
-bool rtcWorking = false;
+static bool rtcWorking = false;
 
-void initRTC() {
-  Wire.begin();
+void initRTC(void) {
+    Wire.begin();
 
-  if (rtc.begin()) {    //makes sure arduino knows rtc is there
-    rtcWorking = true;
-  } 
-  else {    //prints error message if not
-    rtcWorking = false;
-    Serial.println("RTC not found");
-  }
+    if (rtc.begin()) {
+        rtcWorking = true;
+    } else {
+        rtcWorking = false;
+        return;
+    }
 
-  if (rtcWorking && rtc.lostPower()) {   //if lost power, updates time to computers time.
+    // For DS1307: if clock is not running, set it to compile time
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-  }
 }
 
-void printTime() {    //function to print time like this 5/2/2026 09:04:07
-  if (!rtcWorking) {
-    Serial.println("RTC not working");
-    return;
-  }
-
-  DateTime now = rtc.now();
-
-  Serial.print(now.month());
-  Serial.print("/");
-  Serial.print(now.day());
-  Serial.print("/");
-  Serial.print(now.year());
-  Serial.print(" ");
-
-  if (now.hour() < 10) {
-    Serial.print("0");
-  }
-  Serial.print(now.hour());
-  Serial.print(":");
-
-  if (now.minute() < 10) {
-    Serial.print("0");
-  }
-  Serial.print(now.minute());
-  Serial.print(":");
-
-  if (now.second() < 10) {
-    Serial.print("0");
-  }
-  Serial.println(now.second());
-}
-/////////////////////////////////////////////////////////////
-void printMQ3TimeStamp(int mq3Value) {    //should be able to delete this. this is the code for displaying (14:32:15 | MQ3 Reading: 510) but maybe should do it in main
-  if (!rtcWorking) {
-    Serial.print("MQ3 Reading: ");
-    Serial.println(mq3Value);
-    return;
-  }
-
-  DateTime now = rtc.now();
-
-  Serial.print("Time: ");
-
-  if (now.hour() < 10) {
-    Serial.print("0");
-  }
-  Serial.print(now.hour());
-  Serial.print(":");
-
-  if (now.minute() < 10) {
-    Serial.print("0");
-  }
-  Serial.print(now.minute());
-  Serial.print(":");
-
-  if (now.second() < 10) {
-    Serial.print("0");
-  }
-  Serial.print(now.second());
-
-  Serial.print(" | MQ3 Reading: ");
-  Serial.println(mq3Value);
-}
-//////////////////////////////////////////////////////////////////////////////
-//Following grabs individual pieces of the time (getter functions)
-int getHour() {
-  if (!rtcWorking) {
-    return -1;
-  }
-
-  DateTime now = rtc.now();   //sets hour of computer to rtc hour
-  return now.hour();
+unsigned char RTC_isWorking(void) {
+    if (rtcWorking) {
+        return 1;
+    } else {
+        return 0;
+    }
 }
 
-int getMinute() {
-  if (!rtcWorking) {
-    return -1;
-  }
+void RTC_getTime(RTCTime *time) {
+    if (!rtcWorking) {
+        time->hour = 0;
+        time->minute = 0;
+        time->second = 0;
+        return;
+    }
 
-  DateTime now = rtc.now();
-  return now.minute();
+    DateTime now = rtc.now();
+
+    time->hour = now.hour();
+    time->minute = now.minute();
+    time->second = now.second();
 }
 
-int getSecond() {
-  if (!rtcWorking) {
-    return -1;
-  }
+int getHour(void) {
+    if (!rtcWorking) {
+        return -1;
+    }
 
-  DateTime now = rtc.now();
-  return now.second();
+    DateTime now = rtc.now();
+    return now.hour();
+}
+
+int getMinute(void) {
+    if (!rtcWorking) {
+        return -1;
+    }
+
+    DateTime now = rtc.now();
+    return now.minute();
+}
+
+int getSecond(void) {
+    if (!rtcWorking) {
+        return -1;
+    }
+
+    DateTime now = rtc.now();
+    return now.second();
 }

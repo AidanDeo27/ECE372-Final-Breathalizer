@@ -1,23 +1,50 @@
-// LAB4 ECE372
-// NICK ROMAN, AIDAN DEOGRACIAS, NOAH MONROE, ANDREW GHARTEY
-// COMPLETED 4/6/26
-// Description: This file implements the initialization of an external
-// switch.
-//----------------------------------------------------------------------//
-
-#include "switch.h"
 #include <avr/io.h>
-/*
- * Initializes pull-up resistor on PD0 and sets it into input mode
- */
+#include <util/delay.h>
+#include "switch.h"
 
-void initSwitchPD0(){
-    //initialize as input using and with a 0
-    DDRD &= ~(1<<PD0);
-    //initialize the pullup resistor
-    PORTD |= (1 << PD0);
-    //initialize/enable external interrupts for PD0 (INT0)
-    EICRA &= ~(1 << ISC01);
-    EICRA |= (1 << ISC00);
-    EIMSK |= (1<<INT0);
+/*
+Switch on Arduino Mega pin 26 = PA4
+
+Wiring:
+PA4 / pin 26 -> one side of switch
+GND          -> other side of switch
+
+Uses internal pull-up.
+Not pressed = 1
+Pressed     = 0
+*/
+
+#define SWITCH_PIN PA4
+
+void initSwitch(void) {
+    // Set PA4 as input
+    DDRA &= ~(1 << DDA4);
+
+    // Enable internal pull-up resistor
+    PORTA |= (1 << SWITCH_PIN);
+}
+
+unsigned char switchPressed(void) {
+    // Active-low switch
+    if (!(PINA & (1 << SWITCH_PIN))) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+void waitForSwitchPress(void) {
+    while (!switchPressed()) {
+        // wait
+    }
+
+    _delay_ms(50); // debounce
+}
+
+void waitForSwitchRelease(void) {
+    while (switchPressed()) {
+        // wait
+    }
+
+    _delay_ms(50); // debounce
 }

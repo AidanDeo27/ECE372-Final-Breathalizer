@@ -1,13 +1,26 @@
 #ifndef RTC_H
 #define RTC_H
 
-void initRTC();
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-void printTime();
-void printMQ3TimeStamp(int mq3Value);
+typedef struct {
+    unsigned char hour;
+    unsigned char minute;
+    unsigned char second;
+} RTCTime;
 
-int getHour();
-int getMinute();
-int getSecond();
+void initRTC(void);
+unsigned char RTC_isWorking(void);
+void RTC_getTime(RTCTime *time);
+
+int getHour(void);
+int getMinute(void);
+int getSecond(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

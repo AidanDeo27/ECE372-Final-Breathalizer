@@ -24,6 +24,9 @@
 #define MQ3_BASELINE_ADC     150
 #define MQ3_ADC_AT_008_BAC   600
 
+#define MQ3_BLOW_DETECT_ADC 125
+#define MQ3_BLOW_DELTA_ADC 25
+
 void initMQ3(void) {
     initADC();
 }
@@ -74,6 +77,43 @@ unsigned char MQ3_isOverLimit(void) {
     float bac = MQ3_getBAC();
 
     if (bac >= BAC_LIMIT) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+float MQ3_calculateBAC(unsigned int adcValue) {
+    if (adcValue <= MQ3_BASELINE_ADC) {
+        return 0.00;
+    }
+
+    float bac = ((float)(adcValue - MQ3_BASELINE_ADC) /
+                (float)(MQ3_ADC_AT_008_BAC - MQ3_BASELINE_ADC)) * BAC_LIMIT;
+
+    return bac;
+}
+
+unsigned char MQ3_isOverLimitFromRaw(unsigned int adcValue) {
+    float bac = MQ3_calculateBAC(adcValue);
+
+    if (bac >= BAC_LIMIT) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+unsigned char MQ3_isBlowing(unsigned int adcValue) {
+    if (adcValue >= MQ3_BLOW_DETECT_ADC) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+unsigned char MQ3_isBlowingAboveBaseline(unsigned int adcValue, unsigned int baseline) {
+    if (adcValue >= baseline + MQ3_BLOW_DELTA_ADC) {
         return 1;
     } else {
         return 0;

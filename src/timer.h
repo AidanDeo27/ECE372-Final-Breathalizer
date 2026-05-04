@@ -1,11 +1,11 @@
-#ifndef timer.h
-#define timer.h
-#include <avr/io.h>
-#include <avr/interrupt.h>
+#ifndef TIMER_H
+#define TIMER_H
 
-void initTimer1();
-void delaySeconds(unsigned int seconds);    
-void startTimer1();
-void stopTimer1();
+extern volatile unsigned int seconds_blown;
+
+void initTimer1(void);
+void startTimer1(void);
+void stopTimer1(void);
+void delaySeconds(unsigned int seconds);
 
 #endif

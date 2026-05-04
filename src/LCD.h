@@ -1,14 +1,16 @@
 #ifndef LCD_H
 #define LCD_H
 
-#include <Arduino.h>
+void initLCD(void);
 
-void initLCD();
+void lcdClear(void);
+void moveCursor(unsigned char row, unsigned char col);
+void writeCharacter(unsigned char character);
+void writeString(const char *string);
 
-float readBatteryVoltage();
+void displayAlcoholStatus(unsigned int rawValue, float bac, unsigned char overLimit);
 
-int getBatteryPercent(float voltage);
-
-void displayBatteryStatus();
+void displayBACWithTime(float bac, unsigned char overLimit,
+                        unsigned char hour, unsigned char minute, unsigned char second);
 
 #endif

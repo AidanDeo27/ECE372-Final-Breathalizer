@@ -11,4 +11,10 @@ float MQ3_getBAC(void);
 
 unsigned char MQ3_isOverLimit(void);
 
+float MQ3_calculateBAC(unsigned int adcValue);
+unsigned char MQ3_isOverLimitFromRaw(unsigned int adcValue);
+
+unsigned char MQ3_isBlowing(unsigned int adcValue);
+unsigned char MQ3_isBlowingAboveBaseline(unsigned int adcValue, unsigned int baseline);
+
 #endif
